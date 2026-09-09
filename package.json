@@ -1,0 +1,34 @@
+{
+  "name": "shlomi-car",
+  "version": "1.0.0",
+  "description": "Shlomi car service management: API (Express + MongoDB) serving the built client",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed:user": "node src/scripts/seedUser.js",
+    "seed:templates": "node src/scripts/seedTemplates.js",
+    "seed:bundles": "node src/scripts/seedBundles.js",
+    "migrate:catalog": "node src/scripts/migrateCatalog.js",
+    "seed:demo": "node src/scripts/seedDemo.js",
+    "recompute": "node src/scripts/recompute.js",
+    "clear:data": "node src/scripts/clearData.js",
+    "bundle": "node src/scripts/bundleClient.js",
+    "smoke": "node src/scripts/smokeTest.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.1",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

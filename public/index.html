@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#172541" />
+    <meta name="application-name" content="שלומי טיפולי רכב" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="שלומי טיפולי רכב" />
+    <meta name="description" content="מעקב טיפולים לרכב: מה בוצע, מה נשאר, תשלומים ותזכורת לטיפול שנתי" />
+
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Link preview (WhatsApp, Facebook, Telegram, Google). __APP_URL__ is replaced by the server with the
+         public address of the deployment (PUBLIC_URL, or the request host), so the image link is absolute. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="שלומי טיפולי רכב" />
+    <meta property="og:title" content="שלומי טיפולי רכב · ניהול טיפולים" />
+    <meta property="og:description" content="מעקב טיפולים לרכב: מה בוצע, מה נשאר, תשלומים ותזכורת לטיפול שנתי" />
+    <meta property="og:url" content="__APP_URL__/" />
+    <meta property="og:image" content="__APP_URL__/og-image.png" />
+    <meta property="og:image:secure_url" content="__APP_URL__/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="שלומי טיפולי רכב" />
+    <meta property="og:locale" content="he_IL" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="שלומי טיפולי רכב · ניהול טיפולים" />
+    <meta name="twitter:description" content="מעקב טיפולים לרכב: מה בוצע, מה נשאר, תשלומים ותזכורת לטיפול שנתי" />
+    <meta name="twitter:image" content="__APP_URL__/og-image.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>שלומי טיפולי רכב · ניהול טיפולים</title>
+
+    <!-- Splash screen (garage style: the Shlomi badge, the tyre spinning on a rolling road). It is painted before
+         any JavaScript runs and React keeps the same picture (components/SplashScreen.jsx) until the data is in. -->
+    <style>
+      .boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 24px;
+        background: radial-gradient(circle at 50% 28%, #24396d 0%, #172541 45%, #0b1328 100%);
+        color: #f8fafc;
+        font-family: 'Heebo', 'Rubik', Arial, sans-serif;
+        text-align: center;
+        -webkit-font-smoothing: antialiased;
+      }
+      .boot-logo {
+        width: 176px;
+        max-width: 48vw;
+        height: auto;
+        border-radius: 50%;
+        filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.55));
+      }
+      .boot-wheel {
+        width: 104px;
+        height: 104px;
+        margin-top: 4px;
+        animation: boot-spin 1s linear infinite;
+        filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5));
+      }
+      .boot-road {
+        width: 230px;
+        max-width: 62vw;
+        height: 5px;
+        border-radius: 3px;
+        margin-top: -10px;
+        background: repeating-linear-gradient(90deg, #cbd5e1 0 26px, transparent 26px 42px);
+        animation: boot-road 0.5s linear infinite;
+        opacity: 0.7;
+      }
+      .boot-title {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+        margin-top: 4px;
+      }
+      .boot-sub {
+        font-size: 15px;
+        color: #cbd5e1;
+        min-height: 22px;
+      }
+      .boot-dots::after {
+        content: '';
+        display: inline-block;
+        width: 1.4em;
+        text-align: right;
+        animation: boot-dots 1.2s steps(1) infinite;
+      }
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes boot-road {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: -42px 0;
+        }
+      }
+      @keyframes boot-dots {
+        0% {
+          content: '';
+        }
+        25% {
+          content: '.';
+        }
+        50% {
+          content: '..';
+        }
+        75% {
+          content: '...';
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-wheel,
+        .boot-road,
+        .boot-dots::after {
+          animation: none;
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-HJvtYDpr.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-DiByNpH6.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-mui-DOGqLFAT.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DIxIxAIA.css">
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot" role="status" aria-label="טוען">
+        <img class="boot-logo" src="/logo.png" alt="שלומי טיפולי רכב" />
+        <img class="boot-wheel" src="/tyre.svg" alt="" aria-hidden="true" />
+        <div class="boot-road" aria-hidden="true"></div>
+        <div class="boot-title">שלומי טיפולי רכב</div>
+        <div class="boot-sub">טוען<span class="boot-dots"></span></div>
+      </div>
+    </div>
+  </body>
+</html>
