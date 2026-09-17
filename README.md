@@ -41,4 +41,5 @@ Web Service מתוך הריפו הזה. Build: `npm install`. Start: `npm start`
 | `npm run smoke` | בדיקות API מול שרת רץ (ברירת מחדל `http://localhost:5055/api`) |
 | `npm run seed:templates` / `seed:bundles` | קטלוג משימות וחבילות התחלתיים |
 | `npm run recompute` | חישוב מחדש של נתוני הרכבים |
+| `npm run seed:history -- --plate 1546665` | טיפולי בדיקה מהעבר לרכב אחד קיים (מתויגים "(נתוני בדיקה)"; `--remove` מוחק אותם, `--dry` רק מציג) |
 | `npm run clear:data` | מחיקת לקוחות, רכבים וטיפולים (זהירות: מסד אמיתי) |

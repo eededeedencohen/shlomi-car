@@ -12,6 +12,7 @@
     "seed:bundles": "node src/scripts/seedBundles.js",
     "migrate:catalog": "node src/scripts/migrateCatalog.js",
     "seed:demo": "node src/scripts/seedDemo.js",
+    "seed:history": "node src/scripts/seedCustomerHistory.js",
     "recompute": "node src/scripts/recompute.js",
     "clear:data": "node src/scripts/clearData.js",
     "bundle": "node src/scripts/bundleClient.js",

@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#172541" />
     <meta name="application-name" content="שלומי טיפולי רכב" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="שלומי טיפולי רכב" />
+    <meta name="apple-mobile-web-app-title" content="שלומי" />
     <meta name="description" content="מעקב טיפולים לרכב: מה בוצע, מה נשאר, תשלומים ותזכורת לטיפול שנתי" />
 
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
@@ -41,66 +42,159 @@
     />
     <title>שלומי טיפולי רכב · ניהול טיפולים</title>
 
-    <!-- Splash screen (garage style: the Shlomi badge, the tyre spinning on a rolling road). It is painted before
-         any JavaScript runs and React keeps the same picture (components/SplashScreen.jsx) until the data is in. -->
+    <!-- Loading screen. It is painted before any JavaScript runs and lives OUTSIDE #root, so React never
+         redraws it (its animation is never restarted); src/lib/bootSplash.js hides it once the data is in
+         and at least three seconds have passed. The sequence: the badge comes in and leaves (about a second),
+         then only the tyre keeps spinning over the rolling road. -->
     <style>
       .boot {
         position: fixed;
         inset: 0;
         z-index: 9999;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: radial-gradient(circle at 50% 38%, #26407a 0%, #172541 48%, #0b1328 100%);
+        opacity: 1;
+        transition: opacity 0.45s ease;
+      }
+      .boot--hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .boot--gone {
+        display: none;
+      }
+      .boot-stage {
+        grid-area: 1 / 1;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 18px;
-        padding: 24px;
-        background: radial-gradient(circle at 50% 28%, #24396d 0%, #172541 45%, #0b1328 100%);
-        color: #f8fafc;
-        font-family: 'Heebo', 'Rubik', Arial, sans-serif;
-        text-align: center;
-        -webkit-font-smoothing: antialiased;
+      }
+
+      /* stage 1: the badge, about a second */
+      .boot-logo-wrap {
+        position: relative;
+        width: min(60vw, 240px);
+        aspect-ratio: 1 / 1;
+        animation: boot-logo 1.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
       }
       .boot-logo {
-        width: 176px;
-        max-width: 48vw;
-        height: auto;
+        display: block;
+        width: 100%;
+        height: 100%;
         border-radius: 50%;
-        filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.55));
+        filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.55));
+      }
+      .boot-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 2px solid rgba(203, 213, 225, 0.65);
+        opacity: 0;
+        animation: boot-ring 1s 0.22s ease-out both;
+      }
+      .boot-ring--late {
+        animation-delay: 0.46s;
+      }
+      .boot-shine {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      .boot-shine::after {
+        content: '';
+        position: absolute;
+        top: -20%;
+        bottom: -20%;
+        left: -70%;
+        width: 40%;
+        transform: skewX(-20deg);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+        animation: boot-shine 0.7s 0.4s ease-in-out both;
+      }
+
+      /* stage 2: only the tyre, for the rest of the wait */
+      .boot-stage-wheel {
+        opacity: 0;
+        animation: boot-wheel-in 0.6s 1.02s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
       }
       .boot-wheel {
-        width: 104px;
-        height: 104px;
-        margin-top: 4px;
-        animation: boot-spin 1s linear infinite;
-        filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5));
+        display: block;
+        width: min(40vw, 156px);
+        height: auto;
+        animation: boot-spin 0.95s linear infinite;
+        filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5));
+      }
+      .boot-shadow {
+        width: min(30vw, 116px);
+        height: 12px;
+        margin-top: 6px;
+        border-radius: 50%;
+        background: radial-gradient(closest-side, rgba(0, 0, 0, 0.5), transparent);
       }
       .boot-road {
-        width: 230px;
-        max-width: 62vw;
+        width: min(64vw, 250px);
         height: 5px;
+        margin-top: 8px;
         border-radius: 3px;
-        margin-top: -10px;
         background: repeating-linear-gradient(90deg, #cbd5e1 0 26px, transparent 26px 42px);
         animation: boot-road 0.5s linear infinite;
         opacity: 0.7;
       }
-      .boot-title {
-        font-size: 26px;
-        font-weight: 800;
-        letter-spacing: 0.2px;
-        margin-top: 4px;
+
+      @keyframes boot-logo {
+        0% {
+          opacity: 0;
+          transform: scale(0.5) rotate(-16deg);
+          filter: blur(8px);
+        }
+        36% {
+          opacity: 1;
+          transform: scale(1.07) rotate(0deg);
+          filter: blur(0);
+        }
+        50% {
+          transform: scale(1);
+        }
+        80% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.4);
+        }
       }
-      .boot-sub {
-        font-size: 15px;
-        color: #cbd5e1;
-        min-height: 22px;
+      @keyframes boot-ring {
+        from {
+          opacity: 0.75;
+          transform: scale(0.92);
+        }
+        to {
+          opacity: 0;
+          transform: scale(1.6);
+        }
       }
-      .boot-dots::after {
-        content: '';
-        display: inline-block;
-        width: 1.4em;
-        text-align: right;
-        animation: boot-dots 1.2s steps(1) infinite;
+      @keyframes boot-shine {
+        from {
+          left: -70%;
+        }
+        to {
+          left: 135%;
+        }
+      }
+      @keyframes boot-wheel-in {
+        from {
+          opacity: 0;
+          transform: scale(0.35);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
       }
       @keyframes boot-spin {
         to {
@@ -115,42 +209,42 @@
           background-position: -42px 0;
         }
       }
-      @keyframes boot-dots {
-        0% {
-          content: '';
-        }
-        25% {
-          content: '.';
-        }
-        50% {
-          content: '..';
-        }
-        75% {
-          content: '...';
-        }
-      }
       @media (prefers-reduced-motion: reduce) {
-        .boot-wheel,
-        .boot-road,
-        .boot-dots::after {
+        .boot-ring,
+        .boot-shine::after,
+        .boot-road {
           animation: none;
+        }
+        .boot-wheel {
+          animation-duration: 2.4s;
         }
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-HJvtYDpr.js"></script>
+    <script type="module" crossorigin src="/assets/index-DGx5ZzXu.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-DiByNpH6.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-mui-DOGqLFAT.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-DIxIxAIA.css">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-mui-C99-RPx7.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-kPC7p_y2.css">
   </head>
   <body>
-    <div id="root">
-      <div class="boot" role="status" aria-label="טוען">
-        <img class="boot-logo" src="/logo.png" alt="שלומי טיפולי רכב" />
-        <img class="boot-wheel" src="/tyre.svg" alt="" aria-hidden="true" />
-        <div class="boot-road" aria-hidden="true"></div>
-        <div class="boot-title">שלומי טיפולי רכב</div>
-        <div class="boot-sub">טוען<span class="boot-dots"></span></div>
+    <script>
+      // when the loading screen was first painted (src/lib/bootSplash.js keeps it for at least three seconds)
+      window.__bootShownAt = performance.now();
+    </script>
+    <div id="boot" class="boot" role="status" aria-label="טוען">
+      <div class="boot-stage boot-stage-logo">
+        <div class="boot-logo-wrap">
+          <span class="boot-ring"></span>
+          <span class="boot-ring boot-ring--late"></span>
+          <img class="boot-logo" src="/logo.png" alt="שלומי טיפולי רכב" />
+          <span class="boot-shine"></span>
+        </div>
+      </div>
+      <div class="boot-stage boot-stage-wheel" aria-hidden="true">
+        <img class="boot-wheel" src="/tyre.svg" alt="" />
+        <div class="boot-shadow"></div>
+        <div class="boot-road"></div>
       </div>
     </div>
+    <div id="root"></div>
   </body>
 </html>
