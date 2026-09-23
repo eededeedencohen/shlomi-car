@@ -4,7 +4,7 @@
  */
 import mongoose from 'mongoose';
 import dayjs from 'dayjs';
-import Service, { SERVICE_KINDS, SERVICE_STATUSES, PAYMENT_METHODS, TOTAL_MODES } from '../models/Service.js';
+import Service, { SERVICE_KINDS, SERVICE_STATUSES, PAYMENT_METHODS, TOTAL_MODES, OTHER_LABEL_MAX, normalizeKinds, kindsOf } from '../models/Service.js';
 import Vehicle from '../models/Vehicle.js';
 import Customer from '../models/Customer.js';
 import WorkItemTemplate from '../models/WorkItemTemplate.js';
@@ -56,6 +56,7 @@ const MSG = {
   badDate: 'תאריך לא תקין',
   badNumber: 'ערך מספרי לא תקין',
   badKind: 'סוג טיפול לא חוקי',
+  otherLabelLong: `שם הטיפול עד ${OTHER_LABEL_MAX} תווים`,
   badStatus: 'סטטוס לא חוקי',
   badMethod: 'אמצעי תשלום לא חוקי',
   badTotalMode: 'מצב חישוב מחיר לא חוקי',
@@ -102,11 +103,28 @@ const sameId = (a, b) => a != null && b != null && String(a) === String(b);
 /** Body task (work + parts + record price, or the flat legacy { title, qty, price }) -> clean sub-document data. */
 const sanitizeItem = (raw, { defaultDone = true } = {}) => normalizeTask(raw, { defaultDone, withStatus: true });
 
-const parseKind = (v, fallback = 'repair') => {
-  if (isBlank(v)) return fallback;
-  if (!SERVICE_KINDS.includes(v)) throw ApiError.badRequest(MSG.badKind);
-  return v;
+/**
+ * The tags of a visit from `body.kinds` (array or comma list) or the old single `body.kind`:
+ * one to four known kinds in canonical order; blank -> fallback; an unknown value -> 400.
+ */
+const parseKinds = (body, fallback = ['repair']) => {
+  const raw = body.kinds !== undefined ? body.kinds : body.kind;
+  if (isBlank(raw) || (Array.isArray(raw) && raw.length === 0)) return fallback;
+  const list = Array.isArray(raw) ? raw : String(raw).split(',');
+  const values = list.map((k) => String(k).trim()).filter(Boolean);
+  if (!values.length) return fallback;
+  if (values.some((k) => !SERVICE_KINDS.includes(k))) throw ApiError.badRequest(MSG.badKind);
+  return normalizeKinds(values);
 };
+
+/** The name of an 'אחר' visit: trimmed, up to OTHER_LABEL_MAX characters. */
+const parseOtherLabel = (v) => {
+  const text = cleanText(v);
+  if (text.length > OTHER_LABEL_MAX) throw ApiError.badRequest(MSG.otherLabelLong);
+  return text;
+};
+
+const sameKinds = (a, b) => a.length === b.length && a.every((k, i) => k === b[i]);
 
 const parseTotalMode = (v, fallback = 'items') => {
   if (isBlank(v)) return fallback;
@@ -267,7 +285,7 @@ export const listServices = asyncHandler(async (req, res) => {
   if (statuses) match.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
 
   const kinds = parseKindFilter(q.kind);
-  if (kinds) match.kind = kinds.length === 1 ? kinds[0] : { $in: kinds };
+  if (kinds) match.kinds = kinds.length === 1 ? kinds[0] : { $in: kinds };
 
   const payment = cleanText(q.payment);
   if (payment === 'open') {
@@ -411,7 +429,8 @@ export const createService = asyncHandler(async (req, res) => {
 
   const status = isBlank(body.status) ? 'pending' : body.status;
   if (!CREATE_STATUSES.includes(status)) throw ApiError.badRequest(MSG.badStatus);
-  const kind = parseKind(body.kind);
+  const kinds = parseKinds(body);
+  const otherLabel = kinds.includes('other') ? parseOtherLabel(body.otherLabel) : '';
   const totalMode = parseTotalMode(body.totalMode);
   const manualTotal = parseNumber(body.manualTotal, { min: 0, message: 'מחיר לא יכול להיות שלילי' });
   const mileage = parseNumber(body.mileage);
@@ -422,15 +441,16 @@ export const createService = asyncHandler(async (req, res) => {
   const carryRefs = Array.isArray(body.carryItems) ? body.carryItems : [];
   const bundleIds = parseBundleIds(body.bundles);
 
-  if (!items.length && !carryRefs.length && !notes) throw ApiError.badRequest(MSG.noContent);
-
+  // a visit may start empty: the tasks are added on its page (2026-09-23)
   const { vehicle, createdVehicle, createdCustomer } = await resolveVehicle(body);
 
   const service = new Service({
     vehicle: vehicle._id,
     customer: vehicle.customer,
     plateNumber: vehicle.plateNumber,
-    kind,
+    kinds,
+    kind: kinds[0],
+    otherLabel,
     status,
     openedAt,
     completedAt,
@@ -489,13 +509,16 @@ export const updateService = asyncHandler(async (req, res) => {
   let recompute = false;
   let mileageChanged = false;
 
-  if (body.kind !== undefined) {
-    const kind = parseKind(body.kind, service.kind);
-    if (kind !== service.kind) {
-      service.kind = kind;
+  if (body.kinds !== undefined || body.kind !== undefined) {
+    const current = kindsOf(service);
+    const kinds = parseKinds(body, current);
+    if (!sameKinds(kinds, current)) {
+      service.kinds = kinds;
+      service.kind = kinds[0];
       recompute = true;
     }
   }
+  if (body.otherLabel !== undefined) service.otherLabel = parseOtherLabel(body.otherLabel);
   if (body.openedAt !== undefined) {
     const openedAt = parseDate(body.openedAt);
     if (openedAt) {

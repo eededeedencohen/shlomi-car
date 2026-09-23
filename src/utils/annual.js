@@ -49,11 +49,11 @@ export async function recomputeVehicleStats(vehicleId) {
 
   const [lastAnnual, openAnnual, lastAny, servicesCount, openServicesCount, openItemsAgg] =
     await Promise.all([
-      Service.findOne({ vehicle: id, kind: 'annual', status: 'done', completedAt: { $ne: null } })
+      Service.findOne({ vehicle: id, kinds: 'annual', status: 'done', completedAt: { $ne: null } })
         .sort({ completedAt: -1, _id: -1 })
         .select('_id completedAt')
         .lean(),
-      Service.findOne({ vehicle: id, kind: 'annual', status: { $in: OPEN_STATUSES } })
+      Service.findOne({ vehicle: id, kinds: 'annual', status: { $in: OPEN_STATUSES } })
         .sort({ openedAt: 1 })
         .select('_id')
         .lean(),

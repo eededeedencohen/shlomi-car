@@ -7,7 +7,7 @@
  * - vehicleRowOf / toVehicleRow: the `VehicleRow` shape returned next to a service (spec 4).
  */
 import mongoose from 'mongoose';
-import Service from '../models/Service.js';
+import Service, { kindsOf } from '../models/Service.js';
 import Vehicle from '../models/Vehicle.js';
 import { annualStateOf } from './annual.js';
 import { round2 } from './normalize.js';
@@ -17,8 +17,11 @@ const NOTES_PREVIEW_LENGTH = 120;
 
 /** Fields of a ServiceRow. `notes` is selected only to derive `notesPreview`. */
 export const SERVICE_ROW_SELECT =
-  '_id plateNumber kind status openedAt completedAt mileage itemsCount itemsDoneCount remainingCount ' +
+  '_id plateNumber kinds kind otherLabel status openedAt completedAt mileage itemsCount itemsDoneCount remainingCount ' +
   'totalPrice paidAmount balance paymentStatus notes vehicle customer createdAt updatedAt';
+
+/** A lean service with its tags always present (rows from before the tags only carry `kind`). */
+export const withKinds = (doc) => (doc ? { ...doc, kinds: kindsOf(doc), kind: kindsOf(doc)[0], otherLabel: doc.otherLabel || '' } : doc);
 
 export const VEHICLE_REF_SELECT = 'plateNumber make model year';
 export const CUSTOMER_REF_SELECT = 'fullName phone';
@@ -34,7 +37,7 @@ export function toServiceRow(doc) {
   if (!doc) return null;
   const { notes, items, payments, statusHistory, ...rest } = toPlain(doc);
   return {
-    ...rest,
+    ...withKinds(rest),
     notesPreview: String(notes || '').slice(0, NOTES_PREVIEW_LENGTH),
   };
 }
@@ -51,7 +54,7 @@ export const populateService = (query) =>
   query.populate('vehicle', VEHICLE_FULL_SELECT).populate('customer', CUSTOMER_FULL_SELECT);
 
 /** Loads a ServiceFull (plain object) by id, or null. */
-export const loadServiceFull = (id) => populateService(Service.findById(id)).lean();
+export const loadServiceFull = (id) => populateService(Service.findById(id)).lean().then(withKinds);
 
 /** Task fields of an OpenItem row (shared with the vehicle controller). */
 export const openItemTaskFields = (it) => ({
@@ -78,7 +81,7 @@ export async function openItemsOfVehicle(vehicleId, { excludeServiceId } = {}) {
 
   const services = await Service.find(match)
     .sort({ openedAt: 1, _id: 1 })
-    .select('_id openedAt kind status items')
+    .select('_id openedAt kinds kind otherLabel status items')
     .lean();
 
   const rows = [];
@@ -91,7 +94,9 @@ export async function openItemsOfVehicle(vehicleId, { excludeServiceId } = {}) {
         serviceId: s._id,
         serviceOpenedAt: s.openedAt,
         serviceStatus: s.status,
-        serviceKind: s.kind,
+        serviceKind: kindsOf(s)[0],
+        serviceKinds: kindsOf(s),
+        serviceOtherLabel: s.otherLabel || '',
         itemId: it._id,
         ...openItemTaskFields(it),
       });

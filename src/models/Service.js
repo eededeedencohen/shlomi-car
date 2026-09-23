@@ -5,8 +5,22 @@ import { taskFields } from './taskSchemas.js';
 
 const { Schema } = mongoose;
 
-export const SERVICE_KINDS = ['annual', 'repair', 'inspection', 'other'];
+// Canonical order of the service tags (a visit carries one to four of them: שנתי / לפני טסט / תיקון / אחר).
+export const SERVICE_KINDS = ['annual', 'inspection', 'repair', 'other'];
+export const OTHER_LABEL_MAX = 15;
 export const SERVICE_STATUSES = ['pending', 'in_progress', 'done', 'cancelled'];
+
+/** Any list (or a single value) -> the known kinds, unique, in canonical order. */
+export const normalizeKinds = (list) => {
+  const arr = Array.isArray(list) ? list : list == null ? [] : [list];
+  return SERVICE_KINDS.filter((k) => arr.includes(k));
+};
+
+/** The kinds of a stored document; rows written before 2026-09-23 only carry the single `kind`. */
+export const kindsOf = (doc) => {
+  const kinds = normalizeKinds(doc?.kinds?.length ? doc.kinds : doc?.kind);
+  return kinds.length ? kinds : ['repair'];
+};
 export const PAYMENT_STATUSES = ['unpaid', 'partial', 'paid'];
 export const PAYMENT_METHODS = ['cash', 'bank_transfer', 'credit', 'check', 'bit', 'other'];
 export const TOTAL_MODES = ['items', 'manual'];
@@ -81,7 +95,12 @@ const serviceSchema = new Schema(
     vehicle: { type: Schema.Types.ObjectId, ref: 'Vehicle', required: true, index: true },
     customer: { type: Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
     plateNumber: { type: String, required: true },
+    // the tags of the visit (1 to 4, canonical order); `kind` is DERIVED = the leading tag, kept for old
+    // readers and for rows written before the tags existed
+    kinds: { type: [{ type: String, enum: SERVICE_KINDS }], default: undefined, index: true },
     kind: { type: String, enum: SERVICE_KINDS, default: 'repair', index: true },
+    // the name given to an 'אחר' visit (up to 15 characters); blank unless 'other' is among the kinds
+    otherLabel: { type: String, trim: true, maxlength: [OTHER_LABEL_MAX, `שם הטיפול עד ${OTHER_LABEL_MAX} תווים`], default: '' },
     status: { type: String, enum: SERVICE_STATUSES, default: 'pending', index: true },
 
     // the visit date; editable
@@ -127,6 +146,11 @@ serviceSchema.post('init', function rememberStatus(doc) {
 
 serviceSchema.pre('validate', function serviceSideEffects(next) {
   const now = new Date();
+
+  // tags: always at least one, canonical order, the leading one mirrored into `kind`
+  this.kinds = kindsOf(this);
+  this.kind = this.kinds[0];
+  if (!this.kinds.includes('other')) this.otherLabel = '';
 
   this.items.forEach((it, i) => {
     if (!it.title) it.title = deriveTitle(it);
@@ -198,7 +222,7 @@ serviceSchema.index({ customer: 1, openedAt: -1 });
 serviceSchema.index({ status: 1, openedAt: 1 });
 serviceSchema.index({ status: 1, balance: 1 });
 serviceSchema.index({ paymentStatus: 1, openedAt: -1 });
-serviceSchema.index({ vehicle: 1, kind: 1, status: 1, completedAt: -1 });
+serviceSchema.index({ vehicle: 1, kinds: 1, status: 1, completedAt: -1 });
 serviceSchema.index({ plateNumber: 1 });
 serviceSchema.index({ openedAt: -1 });
 serviceSchema.index({ updatedAt: -1 });

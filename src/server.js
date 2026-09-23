@@ -9,6 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const { connectDB } = await import('./config/db.js');
+const { runMigrations } = await import('./utils/migrations.js');
 const { default: app } = await import('./app.js');
 
 const PORT = process.env.PORT || 5000;
@@ -20,6 +21,7 @@ const start = async () => {
       process.exit(1);
     }
     await connectDB();
+    await runMigrations();
     app.listen(PORT, () => {
       console.log(`Shlomi Garage API listening on http://localhost:${PORT}`);
     });

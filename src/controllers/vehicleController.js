@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import dayjs from 'dayjs';
 import Vehicle from '../models/Vehicle.js';
 import Customer from '../models/Customer.js';
-import Service from '../models/Service.js';
+import Service, { kindsOf } from '../models/Service.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import { parsePaging, listResponse } from '../utils/paging.js';
@@ -29,7 +29,7 @@ const BACKFILL_DEFAULT_NOTE = 'רשומה היסטורית לצורך תזכור
 
 /** ServiceRow field list (spec 4). `notes` is fetched only to derive `notesPreview`. */
 export const SERVICE_ROW_SELECT =
-  'plateNumber kind status openedAt completedAt mileage itemsCount itemsDoneCount remainingCount ' +
+  'plateNumber kinds kind otherLabel status openedAt completedAt mileage itemsCount itemsDoneCount remainingCount ' +
   'totalPrice paidAmount balance paymentStatus notes vehicle customer createdAt updatedAt';
 
 const VEHICLE_REF_SELECT = 'plateNumber make model year';
@@ -43,11 +43,12 @@ export const serviceRowQuery = (query, extraSelect = '') =>
     .populate('customer', CUSTOMER_REF_SELECT)
     .lean();
 
-/** Lean service document -> ServiceRow (full notes replaced by a 120 char preview). */
+/** Lean service document -> ServiceRow (full notes replaced by a 120 char preview; tags always present). */
 export const toServiceRow = (doc) => {
   if (!doc) return null;
   const { notes, ...rest } = doc;
-  return { ...rest, notesPreview: String(notes || '').slice(0, NOTES_PREVIEW_LENGTH) };
+  const kinds = kindsOf(rest);
+  return { ...rest, kinds, kind: kinds[0], otherLabel: rest.otherLabel || '', notesPreview: String(notes || '').slice(0, NOTES_PREVIEW_LENGTH) };
 };
 
 /** CustomerRef from a populated customer (or a bare id when not populated). */
@@ -149,7 +150,7 @@ export async function openItemsOfVehicle(vehicleId) {
     items: { $elemMatch: { done: false, 'carriedTo.service': null } },
   })
     .sort({ openedAt: 1 })
-    .select('_id openedAt kind status items')
+    .select('_id openedAt kinds kind otherLabel status items')
     .lean();
 
   const rows = [];
@@ -162,7 +163,9 @@ export async function openItemsOfVehicle(vehicleId) {
         serviceId: s._id,
         serviceOpenedAt: s.openedAt,
         serviceStatus: s.status,
-        serviceKind: s.kind,
+        serviceKind: kindsOf(s)[0],
+        serviceKinds: kindsOf(s),
+        serviceOtherLabel: s.otherLabel || '',
         itemId: it._id,
         ...openItemTaskFields(it),
       });
@@ -623,7 +626,7 @@ export const backfillAnnual = asyncHandler(async (req, res) => {
   const dayEnd = addDays(dayStart, 1);
   const sameDay = await Service.exists({
     vehicle: vehicle._id,
-    kind: 'annual',
+    kinds: 'annual',
     status: 'done',
     completedAt: { $gte: dayStart, $lt: dayEnd },
   });
@@ -635,6 +638,7 @@ export const backfillAnnual = asyncHandler(async (req, res) => {
     vehicle: vehicle._id,
     customer: vehicle.customer,
     plateNumber: vehicle.plateNumber,
+    kinds: ['annual'],
     kind: 'annual',
     status: 'done',
     openedAt: completedAt,

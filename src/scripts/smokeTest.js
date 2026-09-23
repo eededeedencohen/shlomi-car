@@ -830,11 +830,23 @@ async function testServiceDetailAndCreate(ctx) {
   const badId = await get('/services/bad');
   expectError(badId, 'get bad id -> 404', 404, 'הטיפול לא נמצא');
 
-  // create errors
-  const empty = await post('/services', { plateNumber: '2722002' });
-  expectError(empty, 'create no items no notes -> 400', 400, MSG.noContent);
+  // an empty visit is allowed since 2026-09-23 (the tasks are added on its page); tags: 1 to 4, canonical order
+  const empty = await post('/services', { plateNumber: '2722002', kinds: ['repair', 'annual', 'other'], otherLabel: 'ניקוי' });
+  const e = expectOk(empty, 'create with no items and no notes -> 201', 201);
+  if (e) {
+    check(e.service.items.length === 0 && JSON.stringify(e.service.kinds) === '["annual","repair","other"]' && e.service.kind === 'annual' && e.service.otherLabel === 'ניקוי', 'empty visit: kinds in canonical order, kind = leading tag, otherLabel kept', empty.endpoint, short([e.service.kinds, e.service.kind, e.service.otherLabel]));
+    await del(`/services/${e.service._id}`);
+  }
+  const badKinds = await post('/services', { plateNumber: '2722002', kinds: ['annual', 'bogus'] });
+  expectError(badKinds, 'create with an unknown tag -> 400', 400);
+  const longLabel = await post('/services', { plateNumber: '2722002', kinds: ['other'], otherLabel: 'א'.repeat(16) });
+  expectError(longLabel, 'create with a 16 character other label -> 400', 400);
   const emptyItems = await post('/services', { plateNumber: '2722002', items: [], notes: '   ' });
-  expectError(emptyItems, 'create blank notes -> 400', 400, MSG.noContent);
+  const ei = expectOk(emptyItems, 'create with blank notes -> 201 (repair by default)', 201);
+  if (ei) {
+    check(JSON.stringify(ei.service.kinds) === '["repair"]' && ei.service.kind === 'repair', 'default tag is repair', emptyItems.endpoint, short(ei.service.kinds));
+    await del(`/services/${ei.service._id}`);
+  }
   const badPlate = await post('/services', { plateNumber: '123', items: [{ title: 'x' }] });
   expectError(badPlate, 'create bad plate -> 400', 400, MSG.plateFormat);
   const newNoCustomer = await post('/services', { plateNumber: '9876543', newVehicle: { make: 'a' }, items: [{ title: 'x' }] });

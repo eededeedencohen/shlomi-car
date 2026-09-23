@@ -80,12 +80,19 @@ if (fs.existsSync(indexHtml)) {
   );
   // The page carries link-preview tags (WhatsApp / Facebook) whose image address must be absolute:
   // __APP_URL__ in index.html becomes PUBLIC_URL (set it on Render) or, failing that, the request's own origin.
-  const indexTemplate = fs.readFileSync(indexHtml, 'utf8');
+  // Read once and re-read whenever the file changes, so a new bundle copied in while the server runs is
+  // served at once (a stale page would point at asset hashes that no longer exist).
+  let indexCache = { mtimeMs: 0, html: '' };
+  const indexTemplate = () => {
+    const { mtimeMs } = fs.statSync(indexHtml);
+    if (mtimeMs !== indexCache.mtimeMs) indexCache = { mtimeMs, html: fs.readFileSync(indexHtml, 'utf8') };
+    return indexCache.html;
+  };
   const publicUrlOf = (req) => (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
     res.set('Cache-Control', 'no-cache');
-    return res.type('html').send(indexTemplate.replaceAll('__APP_URL__', publicUrlOf(req)));
+    return res.type('html').send(indexTemplate().replaceAll('__APP_URL__', publicUrlOf(req)));
   });
 }
 

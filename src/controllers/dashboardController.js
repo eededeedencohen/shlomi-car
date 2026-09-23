@@ -8,7 +8,7 @@
  * Row builders (ServiceRow / VehicleRow / AnnualRow) are defined here and shared with searchController.
  * The ServiceRow select list is duplicated from the spec on purpose (S4 may not import utils/serviceRows.js).
  */
-import Service from '../models/Service.js';
+import Service, { kindsOf } from '../models/Service.js';
 import Vehicle from '../models/Vehicle.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
@@ -30,7 +30,7 @@ const OPEN_BALANCE_MATCH = { status: { $ne: 'cancelled' }, balance: { $gt: 0.005
  * ---------------------------------------------------------------------------------------------- */
 
 export const SERVICE_ROW_SELECT =
-  'plateNumber kind status openedAt completedAt mileage itemsCount itemsDoneCount remainingCount ' +
+  'plateNumber kinds kind otherLabel status openedAt completedAt mileage itemsCount itemsDoneCount remainingCount ' +
   'totalPrice paidAmount balance paymentStatus notes vehicle customer createdAt updatedAt';
 
 export const VEHICLE_REF_SELECT = 'plateNumber make model year';
@@ -41,7 +41,8 @@ export const toServiceRow = (doc) => {
   if (!doc) return null;
   const { notes, ...rest } = doc;
   const text = notes ? String(notes) : '';
-  return { ...rest, notesPreview: text.slice(0, NOTES_PREVIEW_LENGTH) };
+  const kinds = kindsOf(rest);
+  return { ...rest, kinds, kind: kinds[0], otherLabel: rest.otherLabel || '', notesPreview: text.slice(0, NOTES_PREVIEW_LENGTH) };
 };
 
 /** Base query for ServiceRow lists; callers add sort / skip / limit and finish with .lean(). */

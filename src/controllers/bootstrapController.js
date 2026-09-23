@@ -10,6 +10,7 @@ import Service from '../models/Service.js';
 import WorkItemTemplate from '../models/WorkItemTemplate.js';
 import ServiceBundle from '../models/ServiceBundle.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { withKinds } from '../utils/serviceRows.js';
 
 export const getBootstrap = asyncHandler(async (req, res) => {
   const [customers, vehicles, services, templates, bundles] = await Promise.all([
@@ -21,6 +22,7 @@ export const getBootstrap = asyncHandler(async (req, res) => {
   ]);
   res.json({
     success: true,
-    data: { customers, vehicles, services, templates, bundles, generatedAt: new Date() },
+    // every service carries its tags, also rows written before the tags existed
+    data: { customers, vehicles, services: services.map(withKinds), templates, bundles, generatedAt: new Date() },
   });
 });
