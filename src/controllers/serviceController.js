@@ -671,6 +671,7 @@ export const updateItem = asyncHandler(async (req, res) => {
     item.done = done;
   }
   if (body.notes !== undefined) item.notes = cleanText(body.notes);
+  if (body.oilType !== undefined) item.oilType = cleanText(body.oilType).slice(0, 30);
 
   autoStart(service);
   await service.save();

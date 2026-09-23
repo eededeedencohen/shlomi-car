@@ -866,6 +866,23 @@ async function testServiceDetailAndCreate(ctx) {
     if (u2) checkEq(u2.status, 'in_progress', 'unticking does not send it back to waiting', untoggled.endpoint);
     await del(`/services/${w.service._id}`);
   }
+  // engine oil type on an item (2026-09-23): stored on create, changed through PUT, at most 30 characters
+  const oily = await post('/services', { plateNumber: '2722002', kinds: ['annual'], items: [{ title: 'שמן מנוע', done: false, oilType: ' 5W-30 ' }, { title: 'מסנן מזגן', done: false }] });
+  const o = expectOk(oily, 'create an annual visit with an oil task', 201);
+  if (o) {
+    checkEq(o.service.items[0].oilType, '5W-30', 'oilType stored (trimmed)', oily.endpoint);
+    checkEq(o.service.items[1].oilType, '', 'other items carry an empty oilType', oily.endpoint);
+    const changed = await put(`/services/${o.service._id}/items/${o.service.items[0]._id}`, { oilType: 'Castrol Edge 0W-20 LL' });
+    const c = expectOk(changed, 'change the oil type');
+    if (c) checkEq(c.items[0].oilType, 'Castrol Edge 0W-20 LL', 'oilType updated', changed.endpoint);
+    const long = await put(`/services/${o.service._id}/items/${o.service.items[0]._id}`, { oilType: 'x'.repeat(40) });
+    const l = expectOk(long, 'a long oil type is cut, not rejected');
+    if (l) checkEq(l.items[0].oilType.length, 30, 'oilType capped at 30 characters', long.endpoint);
+    const cleared = await put(`/services/${o.service._id}/items/${o.service.items[0]._id}`, { oilType: '' });
+    const cl = expectOk(cleared, 'clear the oil type');
+    if (cl) checkEq(cl.items[0].oilType, '', 'oilType cleared', cleared.endpoint);
+    await del(`/services/${o.service._id}`);
+  }
   const badPlate = await post('/services', { plateNumber: '123', items: [{ title: 'x' }] });
   expectError(badPlate, 'create bad plate -> 400', 400, MSG.plateFormat);
   const newNoCustomer = await post('/services', { plateNumber: '9876543', newVehicle: { make: 'a' }, items: [{ title: 'x' }] });
@@ -1440,12 +1457,15 @@ async function testBundles(ctx) {
     check(l.bundles.length >= 3 && l.bundles.every((b) => b.active), 'seeded active bundles (3+)', list.endpoint, short(l.bundles.length));
     checkShape(l.bundles[0], ['_id', 'title', 'titleKey', 'description', 'kind', 'items', 'itemsCount', 'usageCount', 'lastUsedAt', 'active', 'order'], 'Bundle shape', list.endpoint);
     const annual = l.bundles.find((b) => b.title === 'טיפול שנתי');
-    check(annual && annual.kind === 'annual' && annual.items.length === 3 && annual.itemsCount === 3, 'seeded annual bundle (3 lines, kind annual)', list.endpoint, short(annual));
+    // Shlomi's standard annual list (2026-09-23): four lines, every visit tagged שנתי opens with them
+    check(annual && annual.kind === 'annual' && annual.items.length === 4 && annual.itemsCount === 4, 'seeded annual bundle (4 lines, kind annual)', list.endpoint, short(annual));
     if (annual) {
       checkShape(annual.items[0], BUNDLE_LINE_KEYS, 'BundleLine shape', list.endpoint);
-      check(annual.items.every((i) => i.template && i.templateActive === true), 'seeded lines linked to active catalog items', list.endpoint, short(annual.items.map((i) => i.template)));
-      const oilLine = annual.items.find((i) => i.title === 'החלפת שמן ומסנן');
-      check(oilLine && oilLine.work && oilLine.parts.length === 2, 'line copies the combined task (work + 2 parts)', list.endpoint, short(oilLine));
+      check(JSON.stringify(annual.items.map((i) => i.title)) === JSON.stringify(['שמן מנוע', 'מסנן שמן מנוע', 'מסנן אוויר', 'מסנן מזגן']), 'the standard lines in order', list.endpoint, short(annual.items.map((i) => i.title)));
+      const linked = annual.items.filter((i) => i.template);
+      check(linked.every((i) => i.templateActive === true), 'lines that match a catalog item are linked to an active one', list.endpoint, short(annual.items.map((i) => i.template)));
+      const oilLine = annual.items.find((i) => i.title === 'שמן מנוע');
+      check(oilLine && !oilLine.work && oilLine.parts.length === 1 && oilLine.parts[0].title === 'שמן מנוע', 'the oil line is a bare part (the oil type is chosen on the visit)', list.endpoint, short(oilLine));
     }
   }
   const byQ = await get('/bundles?q=' + encodeURIComponent('בלמים'));

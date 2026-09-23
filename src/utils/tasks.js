@@ -118,7 +118,11 @@ export function normalizeTask(raw, { defaultDone = true, withStatus = true } = {
     notes: cleanText(src.notes),
     template: !isBlank(src.template) && mongoose.isValidObjectId(String(src.template)) ? src.template : null,
   };
-  if (withStatus) out.done = parseBool(src.done, defaultDone);
+  if (withStatus) {
+    out.done = parseBool(src.done, defaultDone);
+    // the engine oil type chosen on the visit (service items only; templates and bundles drop it)
+    out.oilType = cleanText(src.oilType).slice(0, 30);
+  }
   return out;
 }
 

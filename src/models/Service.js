@@ -42,6 +42,8 @@ const carryRefSchema = new Schema(
  */
 const workItemSchema = new Schema({
   ...taskFields(),
+  // engine oil tasks: the oil type chosen on the visit ('5W-30', or any name), 2026-09-23
+  oilType: { type: String, trim: true, maxlength: [30, 'סוג השמן עד 30 תווים'], default: '' },
   total: { type: Number, default: 0 },
   priced: { type: Boolean, default: false },
   done: { type: Boolean, default: false },

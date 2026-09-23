@@ -69,6 +69,7 @@ export async function carryItems(targetService, refs) {
         work: item.work ? { title: item.work.title, price: item.work.price ?? null } : null,
         parts: (item.parts || []).map((p) => ({ title: p.title, qty: p.qty ?? 1, price: p.price ?? null })),
         price: item.price ?? null,
+        oilType: item.oilType || '',
         notes: item.notes || '',
         template: item.template ?? null,
         done: false,

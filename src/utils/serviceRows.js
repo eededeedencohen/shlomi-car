@@ -62,6 +62,7 @@ export const openItemTaskFields = (it) => ({
   work: it.work ? { title: it.work.title, price: it.work.price ?? null } : null,
   parts: (it.parts || []).map((p) => ({ _id: p._id, title: p.title, qty: p.qty ?? 1, price: p.price ?? null })),
   price: it.price ?? null,
+  oilType: it.oilType || '',
   total: taskTotal(it),
   priced: taskPriced(it),
   notes: it.notes || '',
