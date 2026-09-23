@@ -598,6 +598,19 @@ export const setStatus = asyncHandler(async (req, res) => {
 
 /* ------------------------------------------------------------------ items */
 
+const AUTO_START_NOTE = 'התחיל עם המשימה הראשונה שבוצעה';
+
+/**
+ * Statuses are not set by hand any more except finishing (2026-09-23): a visit waits ('ממתין') until a task
+ * is marked done, then it is in progress. Called before saving after any item change.
+ */
+const autoStart = (service) => {
+  if (service.status !== 'pending' || !service.items.some((it) => it.done)) return false;
+  service.$locals.statusNote = AUTO_START_NOTE;
+  service.status = 'in_progress';
+  return true;
+};
+
 /** POST /api/services/:id/items (single item or { items: [...], bundles?: [bundleId] }) */
 export const addItems = asyncHandler(async (req, res) => {
   const body = req.body || {};
@@ -610,6 +623,7 @@ export const addItems = asyncHandler(async (req, res) => {
   const bundleIds = parseBundleIds(body.bundles);
 
   items.forEach((it) => service.items.push(it));
+  autoStart(service);
   await service.save();
   bumpTemplateUsageInBackground(items);
   bumpBundleUsageInBackground(bundleIds);
@@ -658,6 +672,7 @@ export const updateItem = asyncHandler(async (req, res) => {
   }
   if (body.notes !== undefined) item.notes = cleanText(body.notes);
 
+  autoStart(service);
   await service.save();
   await recomputeVehicleStats(service.vehicle);
 
@@ -673,6 +688,7 @@ export const toggleItem = asyncHandler(async (req, res) => {
   if (!item.done && item.carriedTo?.service) throw ApiError.badRequest(MSG.itemCarried);
 
   item.done = !item.done;
+  autoStart(service);
   await service.save();
   await recomputeVehicleStats(service.vehicle);
 

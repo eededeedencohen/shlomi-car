@@ -847,6 +847,25 @@ async function testServiceDetailAndCreate(ctx) {
     check(JSON.stringify(ei.service.kinds) === '["repair"]' && ei.service.kind === 'repair', 'default tag is repair', emptyItems.endpoint, short(ei.service.kinds));
     await del(`/services/${ei.service._id}`);
   }
+  // automatic status (2026-09-23): a waiting visit starts by itself with the first task marked done
+  const waiting = await post('/services', { plateNumber: '2722002', status: 'pending', items: [{ title: 'בדיקת בלמים', done: false }, { title: 'מגבים', done: false }] });
+  const w = expectOk(waiting, 'create a waiting visit with two undone tasks', 201);
+  if (w) {
+    checkEq(w.service.status, 'pending', 'undone tasks keep it waiting', waiting.endpoint);
+    const added = await post(`/services/${w.service._id}/items`, { title: 'שמן', done: false });
+    const a = expectOk(added, 'adding an undone task keeps it waiting', 201);
+    if (a) checkEq(a.status, 'pending', 'still pending after an undone task', added.endpoint);
+    const toggled = await patch(`/services/${w.service._id}/items/${w.service.items[0]._id}/toggle`);
+    const t = expectOk(toggled, 'toggle the first task done');
+    if (t) {
+      checkEq(t.status, 'in_progress', 'the first done task moves it to in_progress', toggled.endpoint);
+      check(t.startedAt != null && t.statusHistory.at(-1)?.from === 'pending' && t.statusHistory.at(-1)?.to === 'in_progress', 'startedAt set and a history line logged', toggled.endpoint, short(t.statusHistory.at(-1)));
+    }
+    const untoggled = await patch(`/services/${w.service._id}/items/${w.service.items[0]._id}/toggle`);
+    const u2 = expectOk(untoggled, 'toggle it back');
+    if (u2) checkEq(u2.status, 'in_progress', 'unticking does not send it back to waiting', untoggled.endpoint);
+    await del(`/services/${w.service._id}`);
+  }
   const badPlate = await post('/services', { plateNumber: '123', items: [{ title: 'x' }] });
   expectError(badPlate, 'create bad plate -> 400', 400, MSG.plateFormat);
   const newNoCustomer = await post('/services', { plateNumber: '9876543', newVehicle: { make: 'a' }, items: [{ title: 'x' }] });
